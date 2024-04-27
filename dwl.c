@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
+#include <wayland-util.h>
 #include <wlr/backend.h>
 #include <wlr/backend/libinput.h>
 #include <wlr/render/allocator.h>
@@ -278,8 +279,10 @@ static void destroypointerconstraint(struct wl_listener *listener, void *data);
 static void destroysessionlock(struct wl_listener *listener, void *data);
 static void destroysessionmgr(struct wl_listener *listener, void *data);
 static Monitor *dirtomon(enum wlr_direction dir);
+static Monitor *numtomon(int num);
 static void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
+static void focusnthmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
@@ -329,6 +332,7 @@ static void spawn(const Arg *arg);
 static void startdrag(struct wl_listener *listener, void *data);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
+static void tagnthmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglefloating(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
@@ -1233,6 +1237,22 @@ dirtomon(enum wlr_direction dir)
 	return selmon;
 }
 
+Monitor *
+numtomon(int num)
+{
+	Monitor *m = NULL;
+	int i = 0;
+
+	wl_list_for_each(m, &mons, link) {
+		if (!m->wlr_output->enabled)
+			i--;
+		if (i == num)
+			break;
+		i++;
+	}
+	return m;
+}
+
 void
 focusclient(Client *c, int lift)
 {
@@ -1317,6 +1337,18 @@ focusmon(const Arg *arg)
 			selmon = dirtomon(arg->i);
 		while (!selmon->wlr_output->enabled && i++ < nmons);
 	}
+	focusclient(focustop(selmon), 1);
+}
+
+void
+focusnthmon(const Arg *arg)
+{
+	Monitor *m;
+	if (arg->i > wl_list_length(&mons))
+		return;
+	if ((m = numtomon(arg->i)) == selmon)
+		return;
+	selmon = m;
 	focusclient(focustop(selmon), 1);
 }
 
@@ -2567,6 +2599,15 @@ tagmon(const Arg *arg)
 	Client *sel = focustop(selmon);
 	if (sel)
 		setmon(sel, dirtomon(arg->i), 0);
+}
+
+void
+tagnthmon(const Arg *arg)
+{
+	Client *sel = focustop(selmon);
+	if (arg->i > wl_list_length(&mons))
+		return;
+	setmon(sel, numtomon(arg->i), 0);
 }
 
 void
