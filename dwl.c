@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
+#include <wayland-util.h>
 #include <wlr/backend.h>
 #include <wlr/backend/libinput.h>
 #include <wlr/render/allocator.h>
@@ -297,8 +298,10 @@ static void dwl_ipc_output_set_client_tags(struct wl_client *client, struct wl_r
 static void dwl_ipc_output_set_layout(struct wl_client *client, struct wl_resource *resource, uint32_t index);
 static void dwl_ipc_output_set_tags(struct wl_client *client, struct wl_resource *resource, uint32_t tagmask, uint32_t toggle_tagset);
 static void dwl_ipc_output_release(struct wl_client *client, struct wl_resource *resource);
+static Monitor *numtomon(int num);
 static void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
+static void focusnthmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
@@ -348,6 +351,7 @@ static void spawn(const Arg *arg);
 static void startdrag(struct wl_listener *listener, void *data);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
+static void tagnthmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
@@ -1262,6 +1266,22 @@ dirtomon(enum wlr_direction dir)
 	return selmon;
 }
 
+Monitor *
+numtomon(int num)
+{
+	Monitor *m = NULL;
+	int i = 0;
+
+	wl_list_for_each(m, &mons, link) {
+		if (!m->wlr_output->enabled)
+			i--;
+		if (i == num)
+			break;
+		i++;
+	}
+	return m;
+}
+
 void
 dwl_ipc_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
@@ -1530,6 +1550,18 @@ focusmon(const Arg *arg)
 			selmon = dirtomon(arg->i);
 		while (!selmon->wlr_output->enabled && i++ < nmons);
 	}
+	focusclient(focustop(selmon), 1);
+}
+
+void
+focusnthmon(const Arg *arg)
+{
+	Monitor *m;
+	if (arg->i > wl_list_length(&mons))
+		return;
+	if ((m = numtomon(arg->i)) == selmon)
+		return;
+	selmon = m;
 	focusclient(focustop(selmon), 1);
 }
 
@@ -2749,6 +2781,15 @@ tagmon(const Arg *arg)
 	Client *sel = focustop(selmon);
 	if (sel)
 		setmon(sel, dirtomon(arg->i), 0);
+}
+
+void
+tagnthmon(const Arg *arg)
+{
+	Client *sel = focustop(selmon);
+	if (arg->i > wl_list_length(&mons))
+		return;
+	setmon(sel, numtomon(arg->i), 0);
 }
 
 void
