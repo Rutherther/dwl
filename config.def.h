@@ -14,6 +14,13 @@ static const float urgentcolor[]           = COLOR(0xff0000ff);
 /* This conforms to the xdg-protocol. Set the alpha to zero to restore the old behavior */
 static const float fullscreen_bg[]         = {0.1f, 0.1f, 0.1f, 1.0f}; /* You can also use glsl colors */
 
+enum {
+	BROWSER,
+};
+const char *modes_labels[] = {
+	"browser",
+};
+
 /* tagging - TAGCOUNT must be no greater than 31 */
 #define TAGCOUNT (9)
 
@@ -154,6 +161,8 @@ static const Key keys[] = {
 	TAGKEYS(                     Key_9,                          8),
 	{ MODKEY|WLR_MODIFIER_SHIFT, Key_q,          quit,           {0} },
 
+	{ MODKEY,                    XKB_KEY_b,          entermode,      {.i = BROWSER} },
+
 	/* Ctrl-Alt-Backspace and Ctrl-Alt-Fx used to be handled by X server */
 	{ WLR_MODIFIER_CTRL|WLR_MODIFIER_ALT,Key_BackSpace, quit, {0} },
 	/* Ctrl-Alt-Fx is used to switch to another VT, if you don't know what a VT is
@@ -163,6 +172,17 @@ static const Key keys[] = {
 	CHVT(Key_F1, 1), CHVT(Key_F2,  2),  CHVT(Key_F3,  3),  CHVT(Key_F4,  4),
 	CHVT(Key_F5, 5), CHVT(Key_F6,  6),  CHVT(Key_F7,  7),  CHVT(Key_F8,  8),
 	CHVT(Key_F9, 9), CHVT(Key_F10, 10), CHVT(Key_F11, 11), CHVT(Key_F12, 12),
+};
+
+static const Modekey modekeys[] = {
+	/* mode      modifier                  key                 function        argument */
+	{ BROWSER, { 0, XKB_KEY_f, spawn, SHCMD("firefox") } },
+	{ BROWSER, { 0, XKB_KEY_f, entermode, {.i = NORMAL} } },
+	{ BROWSER, { 0, XKB_KEY_b, spawn, SHCMD("brave") } },
+	{ BROWSER, { 0, XKB_KEY_b, entermode, {.i = NORMAL} } },
+	{ BROWSER, { 0, XKB_KEY_g, spawn, SHCMD("google-chrome-stable") } },
+	{ BROWSER, { 0, XKB_KEY_g, entermode, {.i = NORMAL} } },
+	{ BROWSER, { 0, XKB_KEY_Escape, entermode, {.i = NORMAL} } },
 };
 
 static const Button buttons[] = {
