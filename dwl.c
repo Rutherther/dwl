@@ -563,10 +563,40 @@ arrangelayers(Monitor *m)
 void
 attachclients(Monitor *m)
 {
+	Monitor *tm;
+	unsigned int utags = 0;
 	Client *c;
-	wl_list_for_each(c, &clients, link)
-		if (c->tags & m->tagset[m->seltags])
+	int rmons = 0;
+
+	if (m == NULL) {
+		return;
+	}
+
+	wl_list_for_each(tm, &mons, link) {
+		if (tm != m) {
+			utags |= tm->tagset[tm->seltags];
+		}
+	}
+
+	wl_list_for_each(c, &clients, link) {
+		if (VISIBLEON(c, m)) {
+			/* if client is also visible on other tags that are displayed on
+			 * other monitors, remove these tags */
+			if (c->tags & utags) {
+				c->tags = c->tags & m->tagset[m->seltags];
+				rmons = 1;
+			}
 			setmon(c, m, c->tags);
+		}
+	}
+
+	if (rmons) {
+		wl_list_for_each(tm, &mons, link) {
+			if (tm != m) {
+				arrange(tm);
+			}
+		}
+	}
 }
 
 void
@@ -1383,12 +1413,19 @@ getunusedtag(void)
 {
 	size_t i = 0;
 	Monitor *m;
-	if (wl_list_empty(&mons))
+	if (wl_list_empty(&mons)) {
 		return i;
+	}
 	for (i=0; i < TAGCOUNT; i++) {
+		int is_used = 0;
 		wl_list_for_each(m, &mons, link) {
-			if (!(m->tagset[m->seltags] & (1<<i)))
-				return i;
+			if ((m->tagset[m->seltags] & (1<<i))) {
+				is_used = 1;
+			}
+		}
+
+		if (!is_used) {
+			return i;
 		}
 	}
 	return i;
