@@ -3148,7 +3148,6 @@ togglefullscreen(const Arg *arg)
 }
 
 void
-togglesticky(const Arg *arg)
 togglescratch(const Arg *arg)
 {
 	Client *c;
@@ -3265,7 +3264,7 @@ focusortogglematchingscratch(const Arg *arg)
 }
 
 void
-toggletag(const Arg *arg)
+togglesticky(const Arg *arg)
 {
 	Client *c = focustop(selmon);
 	if(!c)
