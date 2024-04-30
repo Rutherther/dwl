@@ -356,6 +356,19 @@ client_set_fullscreen(Client *c, int fullscreen)
 	wlr_xdg_toplevel_set_fullscreen(c->surface.xdg->toplevel, fullscreen);
 }
 
+static inline void
+client_set_minimized(struct wlr_surface *s, int minimized)
+{
+#ifdef XWAYLAND
+	struct wlr_xwayland_surface *xsurface;
+	if ((xsurface = wlr_xwayland_surface_try_from_wlr_surface(s))) {
+		int focused = seat->keyboard_state.focused_surface == xsurface->surface;
+		wlr_xwayland_surface_set_minimized(xsurface, !focused && minimized);
+		return;
+	}
+#endif
+}
+
 static inline uint32_t
 client_set_size(Client *c, uint32_t width, uint32_t height)
 {
