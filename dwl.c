@@ -281,6 +281,7 @@ static Monitor *dirtomon(enum wlr_direction dir);
 static void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
+static void focusnthclient(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 static void handlesig(int signo);
@@ -2567,6 +2568,26 @@ tagmon(const Arg *arg)
 	Client *sel = focustop(selmon);
 	if (sel)
 		setmon(sel, dirtomon(arg->i), 0);
+}
+
+void
+focusnthclient(const Arg *arg)
+{
+	Client *c;
+	unsigned int i = arg->ui;
+
+	wl_list_for_each(c, &clients, link) {
+		if (!VISIBLEON(c, selmon) || c->isfloating) {
+			continue;
+		}
+
+		if (i == 0) {
+			focusclient(c, 1);
+			return;
+		}
+
+		i--;
+	}
 }
 
 void
