@@ -323,6 +323,7 @@ static void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
 static void focusnthmon(const Arg *arg);
 static void focusstack(const Arg *arg);
+static void focusnthclient(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 static size_t getunusedtag(void);
@@ -568,6 +569,8 @@ applyrules(Client *c)
 			newtags = p->tags;
 		}
 	}
+	c->geom.x = (mon->w.width - c->geom.width) / 2 + mon->m.x;
+	c->geom.y = (mon->w.height - c->geom.height) / 2 + mon->m.y;
 	setmon(c, mon, newtags);
 }
 
@@ -3146,6 +3149,22 @@ tagnthmon(const Arg *arg)
 
 	arrange(selmon);
 	arrange(m);
+}
+
+void
+focusnthclient(const Arg *arg)
+{
+	Client *c;
+	unsigned int i = arg->ui;
+
+	wl_list_for_each(c, &clients, link) {
+		if (i == 0) {
+			focusclient(c, 1);
+			return;
+		}
+
+		i--;
+	}
 }
 
 void
