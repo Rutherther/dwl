@@ -3158,6 +3158,10 @@ focusnthclient(const Arg *arg)
 	unsigned int i = arg->ui;
 
 	wl_list_for_each(c, &clients, link) {
+		if (c->mon != selmon) {
+			continue;
+		}
+
 		if (i == 0) {
 			focusclient(c, 1);
 			return;
