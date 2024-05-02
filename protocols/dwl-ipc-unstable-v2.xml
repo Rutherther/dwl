@@ -75,6 +75,7 @@ I would probably just submit raphi's patchset but I don't think that would be po
       <entry name="none" value="0" summary="no state"/>
       <entry name="active" value="1" summary="tag is active"/>
       <entry name="urgent" value="2" summary="tag has at least one urgent client"/>
+      <entry name="active_other" value="4" summary="tag is active on another monitor"/>
     </enum>
 
     <request name="release" type="destructor">
