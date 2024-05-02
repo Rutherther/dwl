@@ -1525,6 +1525,7 @@ void
 dwl_ipc_output_printstatus_to(DwlIpcOutput *ipc_output)
 {
 	Monitor *monitor = ipc_output->mon;
+	Monitor *m;
 	Client *c, *focused;
 	int tagmask, state, numclients, focused_client, tag;
 	const char *title, *appid;
@@ -1537,9 +1538,12 @@ dwl_ipc_output_printstatus_to(DwlIpcOutput *ipc_output)
 		if ((tagmask & monitor->tagset[monitor->seltags]) != 0)
 			state |= ZDWL_IPC_OUTPUT_V2_TAG_STATE_ACTIVE;
 
+		wl_list_for_each(m, &mons, link) {
+			if (m != monitor && m->wlr_output->enabled && (tagmask & (m->tagset[m->seltags])) != 0)
+				state |= ZDWL_IPC_OUTPUT_V2_TAG_STATE_ACTIVE_OTHER;
+		}
+
 		wl_list_for_each(c, &clients, link) {
-			if (c->mon != monitor)
-				continue;
 			if (!(c->tags & tagmask))
 				continue;
 			if (c == focused)
