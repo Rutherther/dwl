@@ -105,6 +105,7 @@ typedef struct {
 	const Arg arg;
 } Button;
 
+typedef struct Pertag Pertag;
 typedef struct Monitor Monitor;
 typedef struct Client Client;
 struct Client {
@@ -229,14 +230,12 @@ struct Monitor {
 	int gamma_lut_changed;
 	int nmaster;
 	char ltsymbol[16];
+	unsigned int pertag[2]; /* the tag used for layout via pertag */
 };
 
 typedef struct {
 	const char *name;
-	float mfact;
-	int nmaster;
 	float scale;
-	const Layout *lt;
 	enum wl_output_transform rr;
 	int x, y;
 } MonitorRule;
@@ -245,6 +244,13 @@ typedef struct {
 	struct wlr_pointer_constraint_v1 *constraint;
 	struct wl_listener destroy;
 } PointerConstraint;
+
+typedef struct {
+	unsigned int tag;
+	float mfact;
+	int nmaster;
+	const Layout *lt;
+} TagRule;
 
 typedef struct {
 	const char *id;
@@ -268,6 +274,7 @@ typedef struct {
 
 /* function declarations */
 static void applybounds(Client *c, struct wlr_box *bbox);
+static void applypertag(Monitor *m);
 static void applyrules(Client *c);
 static void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
@@ -326,6 +333,7 @@ static void focusstack(const Arg *arg);
 static void focusnthclient(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
+static unsigned int getpertagtag(unsigned int curtagset);
 static size_t getunusedtag(void);
 static void handlesig(int signo);
 static void incnmaster(const Arg *arg);
@@ -473,6 +481,7 @@ static struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
 static struct wl_list mons;
 static Monitor *selmon;
+static Pertag pertag;
 
 static struct zdwl_ipc_manager_v2_interface dwl_manager_implementation = {.release = dwl_ipc_manager_release, .get_output = dwl_ipc_manager_get_output};
 static struct zdwl_ipc_output_v2_interface dwl_output_implementation = {.release = dwl_ipc_output_release, .set_tags = dwl_ipc_output_set_tags, .set_layout = dwl_ipc_output_set_layout, .set_client_tags = dwl_ipc_output_set_client_tags};
@@ -497,6 +506,13 @@ static xcb_atom_t netatom[NetLast];
 
 /* attempt to encapsulate suck into one file */
 #include "client.h"
+
+struct Pertag {
+	int nmasters[TAGCOUNT + 1]; /* number of windows in master area */
+	float mfacts[TAGCOUNT + 1]; /* mfacts per tag */
+	unsigned int sellts[TAGCOUNT + 1]; /* selected layouts */
+	const Layout *ltidxs[TAGCOUNT + 1][2]; /* matrix of tags and layouts indexes  */
+};
 
 /* function implementations */
 void
@@ -1066,6 +1082,33 @@ createlocksurface(struct wl_listener *listener, void *data)
 		client_notify_enter(lock_surface->surface, wlr_seat_get_keyboard(seat));
 }
 
+unsigned int
+getpertagtag(unsigned int curtagset)
+{
+	size_t i;
+
+	if (curtagset == TAGMASK) {
+		return 0;
+	}
+
+	if ((curtagset & TAGMASK) == 0) {
+		return 0; // What to do in this case?
+	}
+
+	for (i = 0; !(curtagset & 1 << i); i++) ;
+	return i + 1;
+}
+
+void
+applypertag(Monitor *m)
+{
+	m->nmaster = pertag.nmasters[m->pertag[m->seltags]];
+	m->mfact = pertag.mfacts[m->pertag[m->seltags]];
+	m->sellt = pertag.sellts[m->pertag[m->seltags]];
+	m->lt[m->sellt] = pertag.ltidxs[m->pertag[m->seltags]][m->sellt];
+	m->lt[m->sellt^1] = pertag.ltidxs[m->pertag[m->seltags]][m->sellt^1];
+}
+
 void
 createmon(struct wl_listener *listener, void *data)
 {
@@ -1091,14 +1134,12 @@ createmon(struct wl_listener *listener, void *data)
 	wlr_output_state_init(&state);
 	/* Initialize monitor state using configured rules */
 	m->tagset[0] = m->tagset[1] = (1<<getunusedtag()) & TAGMASK;
+	m->pertag[0] = m->pertag[1] = getpertagtag(m->tagset[0]);
+	applypertag(m);
 	for (r = monrules; r < END(monrules); r++) {
 		if (!r->name || strstr(wlr_output->name, r->name)) {
 			m->m.x = r->x;
 			m->m.y = r->y;
-			m->mfact = r->mfact;
-			m->nmaster = r->nmaster;
-			m->lt[0] = r->lt;
-			m->lt[1] = &layouts[LENGTH(layouts) > 1 && r->lt != &layouts[1]];
 			strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
 			wlr_output_state_set_scale(&state, r->scale);
 			wlr_output_state_set_transform(&state, r->rr);
@@ -1902,7 +1943,7 @@ incnmaster(const Arg *arg)
 {
 	if (!arg || !selmon)
 		return;
-	selmon->nmaster = MAX(selmon->nmaster + arg->i, 0);
+	selmon->nmaster = pertag.nmasters[selmon->pertag[selmon->seltags]] = MAX(selmon->nmaster + arg->i, 0);
 	arrange(selmon);
 }
 
@@ -2741,9 +2782,9 @@ setlayout(const Arg *arg)
 	if (!selmon)
 		return;
 	if (!arg || !arg->v || arg->v != selmon->lt[selmon->sellt])
-		selmon->sellt ^= 1;
+		selmon->sellt = pertag.sellts[selmon->pertag[selmon->seltags]] ^= 1;
 	if (arg && arg->v)
-		selmon->lt[selmon->sellt] = (Layout *)arg->v;
+		selmon->lt[selmon->sellt] = pertag.ltidxs[selmon->pertag[selmon->seltags]][selmon->sellt] = (Layout *)arg->v;
 	strncpy(selmon->ltsymbol, selmon->lt[selmon->sellt]->symbol, LENGTH(selmon->ltsymbol));
 	arrange(selmon);
 	printstatus();
@@ -2760,7 +2801,7 @@ setmfact(const Arg *arg)
 	f = arg->f < 1.0f ? arg->f + selmon->mfact : arg->f - 1.0f;
 	if (f < 0.1 || f > 0.9)
 		return;
-	selmon->mfact = f;
+	selmon->mfact = pertag.mfacts[selmon->pertag[selmon->seltags]] = f;
 	arrange(selmon);
 }
 
@@ -2817,6 +2858,7 @@ setsel(struct wl_listener *listener, void *data)
 void
 setup(void)
 {
+	const TagRule *r;
 	struct xkb_context *context;
 	struct xkb_keymap *keymap;
 
@@ -2907,6 +2949,19 @@ setup(void)
 	output_layout = wlr_output_layout_create();
 	LISTEN_STATIC(&output_layout->events.change, updatemons);
 	wlr_xdg_output_manager_v1_create(dpy, output_layout);
+
+	for (i = 0; i <= TAGCOUNT; i++) {
+		for (r = tagrules; r < END(tagrules); r++) {
+			if (!r->tag || r->tag == i) {
+				pertag.mfacts[i] = r->mfact;
+				pertag.nmasters[i] = r->nmaster;
+				pertag.sellts[i] = 0;
+				pertag.ltidxs[i][0] = r->lt;
+				pertag.ltidxs[i][1] = r->lt;
+				break;
+			}
+		}
+	}
 
 	/* Configure a listener to be notified when new outputs are available on the
 	 * backend. */
@@ -3391,6 +3446,12 @@ toggleview(const Arg *arg)
 		if (m !=selmon && newtagset & m->tagset[m->seltags])
 			return;
 
+	// set new pertag tag only if the tag we were at was removed, or if all tags are shown.
+	if (!(newtagset & 1 << (selmon->pertag[selmon->seltags] - 1)) || newtagset == TAGMASK) {
+		selmon->pertag[selmon->seltags] = getpertagtag(newtagset);
+	}
+
+	applypertag(selmon);
 	selmon->tagset[selmon->seltags] = newtagset;
 	attachclients(selmon);
 	focusclient(focustop(selmon), 1);
@@ -3622,6 +3683,8 @@ view(const Arg *arg)
 				return;
 			m->seltags ^= 1;
 			m->tagset[m->seltags] = selmon->tagset[selmon->seltags];
+			m->pertag[m->seltags] = selmon->pertag[selmon->seltags];
+			applypertag(m);
 			attachclients(m);
 			focusclient(focustop(m), 1);
 			arrange(m);
@@ -3630,8 +3693,12 @@ view(const Arg *arg)
 	}
 
 	origm->seltags ^= 1; /* toggle sel tagset */
-	if (arg->ui & TAGMASK)
+	if (arg->ui & TAGMASK) {
 		origm->tagset[origm->seltags] = arg->ui & TAGMASK;
+		origm->pertag[origm->seltags] = getpertagtag(arg->ui & TAGMASK);
+	}
+
+	applypertag(origm);
 	attachclients(origm);
 	focusclient(focustop(origm), 1);
 	arrange(origm);
