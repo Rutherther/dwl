@@ -716,6 +716,10 @@ closemon(Monitor *m)
 		do /* don't switch to disabled mons */
 			selmon = wl_container_of(mons.next, selmon, link);
 		while (!selmon->wlr_output->enabled && i++ < nmons);
+
+		if (!selmon->wlr_output->enabled) {
+			selmon = NULL;
+		}
 	}
 
 	wl_list_for_each(c, &clients, link) {
@@ -866,6 +870,7 @@ createmon(struct wl_listener *listener, void *data)
 	 * monitor) becomes available. */
 	struct wlr_output *wlr_output = data;
 	const MonitorRule *r;
+	Client *c;
 	size_t i;
 	struct wlr_output_state state;
 	Monitor *m;
@@ -934,10 +939,25 @@ createmon(struct wl_listener *listener, void *data)
 	 * output (such as DPI, scale factor, manufacturer, etc).
 	 */
 	m->scene_output = wlr_scene_output_create(scene, wlr_output);
+
 	if (m->m.x < 0 || m->m.y < 0)
 		wlr_output_layout_add_auto(output_layout, wlr_output);
 	else
 		wlr_output_layout_add(output_layout, wlr_output, m->m.x, m->m.y);
+
+	/* Recovering from state with no monitors
+	 * Add all clients to the only monitor.
+	 */
+	if (selmon == NULL) {
+		selmon = m;
+
+		wl_list_for_each(c, &clients, link) {
+			if (c->isfloating && c->geom.x > m->m.width)
+				resize(c, (struct wlr_box){.x = c->geom.x - m->w.width, .y = c->geom.y,
+						.width = c->geom.width, .height = c->geom.height}, 0);
+			setmon(c, selmon, c->tags);
+		}
+	}
 }
 
 void
@@ -2773,6 +2793,10 @@ updatemons(struct wl_listener *listener, void *data)
 
 		config_head->state.x = m->m.x;
 		config_head->state.y = m->m.y;
+
+		if (!selmon) {
+			selmon = m;
+		}
 	}
 
 	if (selmon && selmon->wlr_output->enabled) {
