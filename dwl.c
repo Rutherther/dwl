@@ -3672,10 +3672,12 @@ void
 view(const Arg *arg)
 {
 	Monitor *m, *origm = selmon;
-	unsigned int newtags = selmon->tagset[selmon->seltags ^ 1];
+	unsigned int newtags;
 
 	if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
 		return;
+
+	newtags = selmon->tagset[selmon->seltags ^ 1];
 
 	/* swap tags when trying to display a tag from another monitor */
 	if (arg->ui & TAGMASK)
