@@ -1674,15 +1674,13 @@ dwl_ipc_output_set_layout(struct wl_client *client, struct wl_resource *resource
 	if (!ipc_output)
 		return;
 
-	monitor = ipc_output->mon;
 	if (index >= LENGTH(layouts))
 		return;
-	if (index != monitor->lt[monitor->sellt] - layouts)
-		monitor->sellt ^= 1;
 
-	monitor->lt[monitor->sellt] = &layouts[index];
-	arrange(monitor);
-	printstatus();
+	monitor = selmon;
+	selmon = ipc_output->mon;
+	setlayout(&(Arg){.v = &layouts[index]});
+	selmon = monitor;
 }
 
 void
@@ -1702,10 +1700,10 @@ dwl_ipc_output_set_tags(struct wl_client *client, struct wl_resource *resource, 
 	if (toggle_tagset)
 		monitor->seltags ^= 1;
 
-	monitor->tagset[monitor->seltags] = newtags;
-	focusclient(focustop(monitor), 1);
-	arrange(monitor);
-	printstatus();
+	monitor = selmon;
+	selmon = ipc_output->mon;
+	view(&(Arg){.ui = newtags});
+	selmon = monitor;
 }
 
 void
@@ -3629,6 +3627,7 @@ updatemons(struct wl_listener *listener, void *data)
 			wlr_session_lock_surface_v1_configure(m->lock_surface, m->m.width, m->m.height);
 		}
 
+		attachclients(m);
 		/* Calculate the effective monitor geometry to use for clients */
 		arrangelayers(m);
 		/* Don't move clients to the left output when plugging monitors */
