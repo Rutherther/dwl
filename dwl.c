@@ -1413,6 +1413,7 @@ dwl_ipc_output_set_layout(struct wl_client *client, struct wl_resource *resource
 	selmon = ipc_output->mon;
 	setlayout(&(Arg){.v = &layouts[index]});
 	selmon = monitor;
+	focusclient(focustop(selmon), 1);
 }
 
 void
@@ -1429,13 +1430,14 @@ dwl_ipc_output_set_tags(struct wl_client *client, struct wl_resource *resource, 
 
 	if (!newtags || newtags == monitor->tagset[monitor->seltags])
 		return;
-	if (toggle_tagset)
-		monitor->seltags ^= 1;
+	/* if (!toggle_tagset) */
+	/* 	monitor->seltags ^= 1; */
 
 	monitor = selmon;
 	selmon = ipc_output->mon;
 	view(&(Arg){.ui = newtags});
 	selmon = monitor;
+	focusclient(focustop(selmon), 1);
 }
 
 void
@@ -3117,6 +3119,7 @@ zoom(const Arg *arg)
 }
 
 #ifdef XWAYLAND
+
 void
 activatex11(struct wl_listener *listener, void *data)
 {
