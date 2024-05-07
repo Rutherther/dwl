@@ -128,6 +128,7 @@ typedef struct {
 	struct wl_listener destroy_decoration;
 	struct wlr_box prev; /* layout-relative, includes border */
 	struct wlr_box bounds;
+	struct wlr_box prev_bounds;
 #ifdef XWAYLAND
 	struct wl_listener activate;
 	struct wl_listener associate;
@@ -286,6 +287,7 @@ static void fullscreennotify(struct wl_listener *listener, void *data);
 static void handlesig(int signo);
 static void incnmaster(const Arg *arg);
 static void inputdevice(struct wl_listener *listener, void *data);
+static int is_inbounds(struct wlr_box *box, struct wlr_box *bounds);
 static int keybinding(uint32_t mods, xkb_keysym_t sym);
 static void keypress(struct wl_listener *listener, void *data);
 static void keypressmod(struct wl_listener *listener, void *data);
@@ -424,6 +426,13 @@ static xcb_atom_t netatom[NetLast];
 /* attempt to encapsulate suck into one file */
 #include "client.h"
 
+int
+is_inbounds(struct wlr_box *box, struct wlr_box *bounds)
+{
+	return box->x >= bounds->x && box->y >= bounds->y &&
+		box->x + box->width <= bounds->x + bounds->width && box->y + box->height <= bounds->y + bounds->height;
+}
+
 /* function implementations */
 void
 applybounds(Client *c, struct wlr_box *bbox)
@@ -431,6 +440,12 @@ applybounds(Client *c, struct wlr_box *bbox)
 	/* set minimum possible */
 	c->geom.width = MAX(1 + 2 * (int)c->bw, c->geom.width);
 	c->geom.height = MAX(1 + 2 * (int)c->bw, c->geom.height);
+
+	if (c->isfloating && c->prev_bounds.width && c->prev_bounds.height &&
+		is_inbounds(&c->geom, &c->prev_bounds) && !is_inbounds(&c->geom, bbox)) {
+		c->geom.x = bbox->x + (c->geom.x - c->prev_bounds.x) * (bbox->width / c->prev_bounds.width);
+		c->geom.y = bbox->y + (c->geom.y - c->prev_bounds.y) * (bbox->height / c->prev_bounds.height);
+	}
 
 	if (c->geom.x >= bbox->x + bbox->width)
 		c->geom.x = bbox->x + bbox->width - c->geom.width;
@@ -2230,10 +2245,13 @@ setmon(Client *c, Monitor *m, uint32_t newtags)
 		return;
 	c->mon = m;
 	c->prev = c->geom;
+	c->prev_bounds = (struct wlr_box){.x = 0, .y = 0, .width = 0, .height = 0};
 
 	/* Scene graph sends surface leave/enter events on move and resize */
-	if (oldmon)
+	if (oldmon) {
 		arrange(oldmon);
+		c->prev_bounds = oldmon->w;
+	}
 	if (m) {
 		/* Make sure window actually overlaps with the monitor */
 		resize(c, c->geom, 0);
@@ -2241,6 +2259,7 @@ setmon(Client *c, Monitor *m, uint32_t newtags)
 		setfullscreen(c, c->isfullscreen); /* This will call arrange(c->mon) */
 		setfloating(c, c->isfloating);
 	}
+	c->prev_bounds = (struct wlr_box){.x = 0, .y = 0, .width = 0, .height = 0};
 	focusclient(focustop(selmon), 1);
 }
 
