@@ -532,14 +532,14 @@ applybounds(Client *c, struct wlr_box *bbox)
 		c->geom.y = bbox->y + (c->geom.y - c->prev_bounds.y) * (bbox->height / c->prev_bounds.height);
 	}
 
-	if (c->geom.x >= bbox->x + bbox->width)
-		c->geom.x = bbox->x + bbox->width - c->geom.width;
-	if (c->geom.y >= bbox->y + bbox->height)
-		c->geom.y = bbox->y + bbox->height - c->geom.height;
 	if (c->geom.x < bbox->x)
 		c->geom.x = bbox->x;
 	if (c->geom.y < bbox->y)
 		c->geom.y = bbox->y;
+	if (c->geom.x + c->geom.width >= bbox->x + bbox->width)
+		c->geom.x = bbox->x + bbox->width - c->geom.width;
+	if (c->geom.y + c->geom.height >= bbox->y + bbox->height)
+		c->geom.y = bbox->y + bbox->height - c->geom.height;
 }
 
 void
