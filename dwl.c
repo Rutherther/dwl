@@ -747,6 +747,8 @@ buttonpress(struct wl_listener *listener, void *data)
 		xytonode(cursor->x, cursor->y, NULL, &c, NULL, NULL, NULL);
 		if (c && (!client_is_unmanaged(c) || client_wants_focus(c)))
 			focusclient(c, 1);
+		else if (!c) /* Change monitor if the button was _pressed_ over an empty space */
+			selmon = xytomon(cursor->x, cursor->y);
 
 		keyboard = wlr_seat_get_keyboard(seat);
 		mods = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
