@@ -77,7 +77,7 @@
 #define ROUND(X)                ((int)((X < 0) ? (X - 0.5) : (X + 0.5)))
 #define CLEANMASK(mask)         (mask & ~WLR_MODIFIER_CAPS)
 #define VISIBLEON(C, M)         ((M) && (C)->mon == (M) && ((C)->tags & ((M)->tagset[(M)->seltags]) || C->issticky))
-#define SVISIBLEON(C, M)        ((M) && (C)->mon && ((C)->tags & ((M)->tagset[(M)->seltags]) || C->issticky))
+#define SVISIBLEON(C, M)        ((M) && (C)->mon && ((C)->tags & ((M)->tagset[(M)->seltags])) && (!(C)->issticky || (C)->mon == (M)))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define END(A)                  ((A) + LENGTH(A))
 #define TAGMASK                 ((1u << TAGCOUNT) - 1)
