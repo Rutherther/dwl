@@ -756,6 +756,8 @@ buttonpress(struct wl_listener *listener, void *data)
 		xytonode(cursor->x, cursor->y, NULL, &c, NULL, NULL, NULL);
 		if (c && (!client_is_unmanaged(c) || client_wants_focus(c)))
 			focusclient(c, 1);
+		else if (!c) /* Change monitor if the button was _pressed_ over an empty space */
+			selmon = xytomon(cursor->x, cursor->y);
 
 		keyboard = wlr_seat_get_keyboard(seat);
 		mods = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
@@ -1681,6 +1683,7 @@ dwl_ipc_output_set_layout(struct wl_client *client, struct wl_resource *resource
 	selmon = ipc_output->mon;
 	setlayout(&(Arg){.v = &layouts[index]});
 	selmon = monitor;
+	focusclient(focustop(selmon), 1);
 }
 
 void
@@ -1697,13 +1700,14 @@ dwl_ipc_output_set_tags(struct wl_client *client, struct wl_resource *resource, 
 
 	if (!newtags || newtags == monitor->tagset[monitor->seltags])
 		return;
-	if (toggle_tagset)
-		monitor->seltags ^= 1;
+	/* if (!toggle_tagset) */
+	/* 	monitor->seltags ^= 1; */
 
 	monitor = selmon;
 	selmon = ipc_output->mon;
 	view(&(Arg){.ui = newtags});
 	selmon = monitor;
+	focusclient(focustop(selmon), 1);
 }
 
 void
@@ -3895,6 +3899,7 @@ entermode(const Arg *arg)
 }
 
 #ifdef XWAYLAND
+
 void
 activatex11(struct wl_listener *listener, void *data)
 {
