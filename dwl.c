@@ -76,7 +76,8 @@
 #define MIN(A, B)               ((A) < (B) ? (A) : (B))
 #define ROUND(X)                ((int)((X < 0) ? (X - 0.5) : (X + 0.5)))
 #define CLEANMASK(mask)         (mask & ~WLR_MODIFIER_CAPS)
-#define VISIBLEON(C, M)         ((M) && (C)->mon && ((C)->tags & ((M)->tagset[(M)->seltags]) || C->issticky))
+#define VISIBLEON(C, M)         ((M) && (C)->mon == (M) && ((C)->tags & ((M)->tagset[(M)->seltags]) || C->issticky))
+#define SVISIBLEON(C, M)        ((M) && (C)->mon && ((C)->tags & ((M)->tagset[(M)->seltags]) || C->issticky))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define END(A)                  ((A) + LENGTH(A))
 #define TAGMASK                 ((1u << TAGCOUNT) - 1)
@@ -705,7 +706,7 @@ attachclients(Monitor *m)
 	}
 
 	wl_list_for_each(c, &clients, link) {
-		if (VISIBLEON(c, m)) {
+		if (SVISIBLEON(c, m)) {
 			/* if client is also visible on other tags that are displayed on
 			 * other monitors, remove these tags */
 			if (c->tags & utags) {
