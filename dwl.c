@@ -31,6 +31,7 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_keyboard_group.h>
+#include <wlr/types/wlr_keyboard_shortcuts_inhibit_v1.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_output.h>
@@ -304,6 +305,7 @@ static void createnotify(struct wl_listener *listener, void *data);
 static void createpointer(struct wlr_pointer *pointer);
 static void createpointerconstraint(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
+static void createshortcutsinhibitor(struct wl_listener *listener, void *data);
 static void cursorframe(struct wl_listener *listener, void *data);
 static void cursorwarptohint(void);
 static void destroydecoration(struct wl_listener *listener, void *data);
@@ -316,6 +318,7 @@ static void destroynotify(struct wl_listener *listener, void *data);
 static void destroypointerconstraint(struct wl_listener *listener, void *data);
 static void destroysessionlock(struct wl_listener *listener, void *data);
 static void destroysessionmgr(struct wl_listener *listener, void *data);
+static void destroyshortcutsinhibitmgr(struct wl_listener *listener, void *data);
 static Monitor *dirtomon(enum wlr_direction dir);
 static Monitor *numtomon(int num);
 static void dwl_ipc_manager_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id);
@@ -452,6 +455,7 @@ static struct wl_list clients; /* tiling order */
 static struct wl_list fstack;  /* focus order */
 static struct wlr_idle_notifier_v1 *idle_notifier;
 static struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
+static struct wlr_keyboard_shortcuts_inhibit_manager_v1 *shortcuts_inhibit_mgr;
 static struct wlr_layer_shell_v1 *layer_shell;
 static struct wlr_output_manager_v1 *output_mgr;
 static struct wlr_gamma_control_manager_v1 *gamma_control_mgr;
@@ -471,6 +475,7 @@ static struct wlr_session_lock_manager_v1 *session_lock_mgr;
 static struct wlr_scene_rect *locked_bg;
 static struct wlr_session_lock_v1 *cur_lock;
 static struct wl_listener lock_listener = {.notify = locksession};
+static struct wl_listener new_shortcuts_inhibitor = {.notify = createshortcutsinhibitor};
 
 static struct wlr_foreign_toplevel_manager_v1 *foreign_toplevel_mgr;
 static struct wlr_output_power_manager_v1 *power_mgr;
@@ -1324,6 +1329,10 @@ createpointer(struct wlr_pointer *pointer)
 	wlr_cursor_attach_input_device(cursor, &pointer->base);
 }
 
+void createshortcutsinhibitor(struct wl_listener *listener, void *data) {
+    wlr_keyboard_shortcuts_inhibitor_v1_activate(data);
+}
+
 void
 createpointerconstraint(struct wl_listener *listener, void *data)
 {
@@ -1507,6 +1516,11 @@ destroysessionmgr(struct wl_listener *listener, void *data)
 {
 	wl_list_remove(&lock_listener.link);
 	wl_list_remove(&listener->link);
+}
+
+void destroyshortcutsinhibitmgr(struct wl_listener *listener, void *data) {
+    wl_list_remove(&new_shortcuts_inhibitor.link);
+    wl_list_remove(&listener->link);
 }
 
 Monitor *
@@ -2084,7 +2098,9 @@ keypress(struct wl_listener *listener, void *data)
 
 	/* On _press_ if there is no active screen locker,
 	 * attempt to process a compositor keybinding. */
-	if (!locked && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+	if (!locked
+		&& event->state == WL_KEYBOARD_KEY_STATE_PRESSED
+		&& wl_list_empty(&shortcuts_inhibit_mgr->inhibitors)) {
 		handled = keybinding(mods, keycode);
 	}
 
@@ -3050,6 +3066,10 @@ setup(void)
 	locked_bg = wlr_scene_rect_create(layers[LyrBlock], sgeom.width, sgeom.height,
 			(float [4]){0.1f, 0.1f, 0.1f, 1.0f});
 	wlr_scene_node_set_enabled(&locked_bg->node, 0);
+
+    shortcuts_inhibit_mgr = wlr_keyboard_shortcuts_inhibit_v1_create(dpy);
+    wl_signal_add(&shortcuts_inhibit_mgr->events.new_inhibitor, &new_shortcuts_inhibitor);
+    LISTEN_STATIC(&shortcuts_inhibit_mgr->events.destroy, destroyshortcutsinhibitmgr);
 
 	/* Use decoration protocols to negotiate server-side decorations */
 	wlr_server_decoration_manager_set_default_mode(
