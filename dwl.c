@@ -3255,7 +3255,7 @@ tagnthmon(const Arg *arg)
 {
 	Client *sel = focustop(selmon);
 	Monitor *m = numtomon(arg->i);
-	if (m == NULL)
+	if (!m || !sel)
 		return;
 	setmon(sel, m, 0);
 
