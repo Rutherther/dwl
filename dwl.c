@@ -2794,23 +2794,27 @@ view(const Arg *arg)
 	Monitor *m, *origm = selmon;
 	unsigned int newtags;
 
-	if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+	if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags]) {
 		return;
+	}
 
-	newtags = selmon->tagset[selmon->seltags ^ 1];
+	newtags = origm->tagset[origm->seltags ^ 1];
 
 	/* swap tags when trying to display a tag from another monitor */
-	if (arg->ui & TAGMASK)
+	if (arg->ui & TAGMASK) {
 		newtags = arg->ui & TAGMASK;
+	}
 	wl_list_for_each(m, &mons, link) {
-		if (m != selmon && newtags & m->tagset[m->seltags]) {
+		if (m != origm && newtags & m->tagset[m->seltags]) {
 			/* prevent displaying all tags (MODKEY-0) when multiple monitors
 			 * are connected */
-			if (newtags & selmon->tagset[selmon->seltags])
+			if (newtags & origm->tagset[origm->seltags]) {
 				return;
+			}
 			m->seltags ^= 1;
-			m->tagset[m->seltags] = selmon->tagset[selmon->seltags];
+			m->tagset[m->seltags] = origm->tagset[origm->seltags];
 			attachclients(m);
+			/* Beware: this changes selmon */
 			focusclient(focustop(m), 1);
 			arrange(m);
 			break;
@@ -2820,6 +2824,9 @@ view(const Arg *arg)
 	origm->seltags ^= 1; /* toggle sel tagset */
 	if (arg->ui & TAGMASK)
 		origm->tagset[origm->seltags] = arg->ui & TAGMASK;
+
+	/* Change selmon back to orig mon */
+	selmon = origm;
 	attachclients(origm);
 	focusclient(focustop(origm), 1);
 	arrange(origm);
