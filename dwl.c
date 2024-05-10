@@ -1841,8 +1841,17 @@ void
 focusnthmon(const Arg *arg)
 {
 	Monitor *m = numtomon(arg->i);
-	if (m == selmon || m == NULL)
+
+	if (!m)
 		return;
+
+	if (m == selmon) {
+		double target_x = m->m.x + m->m.width / 2;
+		double target_y = m->m.y + m->m.height / 2;
+		wlr_cursor_move(cursor, NULL, target_x - cursor->x, target_y - cursor->y);
+		return;
+	}
+
 	selmon = m;
 	focusclient(focustop(selmon), 1);
 }
