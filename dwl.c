@@ -452,6 +452,15 @@ applyrules(Client *c)
 		}
 	}
 	wlr_scene_node_reparent(&c->scene->node, layers[c->isfloating ? LyrFloat : LyrTile]);
+
+	wl_list_for_each(m, &mons, link) {
+		// tag with different monitor selected by rules
+		if (m->tagset[m->seltags] & newtags) {
+			mon = m;
+			break;
+		}
+	}
+
 	setmon(c, mon, newtags);
 }
 
