@@ -1887,7 +1887,7 @@ focustop(Monitor *m)
 {
 	Client *c;
 	wl_list_for_each(c, &fstack, flink) {
-		if (VISIBLEON(c, m))
+		if (SVISIBLEON(c, m))
 			return c;
 	}
 	return NULL;
