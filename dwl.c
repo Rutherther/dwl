@@ -614,6 +614,7 @@ applyrules(Client *c)
 	}
 
 	setmon(c, mon, newtags);
+	attachclients(mon);
 }
 
 void
