@@ -990,6 +990,9 @@ closemon(Monitor *m)
 		if (c->mon == m)
 			setmon(c, selmon, c->tags);
 	}
+
+	m->tagset[0] = m->tagset[1] = 0;
+
 	focusclient(focustop(selmon), 1);
 	printstatus();
 }
@@ -3675,6 +3678,10 @@ updatemons(struct wl_listener *listener, void *data)
 		if (!m->wlr_output->enabled)
 			continue;
 		config_head = wlr_output_configuration_head_v1_create(config, m->wlr_output);
+
+		if ((m->tagset[0] & TAGMASK) == 0 && (m->tagset[1] & TAGMASK) == 0) {
+			m->tagset[0] = m->tagset[1] = (1<<getunusedtag()) & TAGMASK;
+		}
 
 		/* Get the effective monitor geometry to use for surfaces */
 		wlr_output_layout_get_box(output_layout, m->wlr_output, &m->m);
